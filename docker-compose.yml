@@ -1,0 +1,99 @@
+version: "3" # Specify the version of the Docker Compose file format
+
+services:
+  postgres:
+    image: "postgres:latest"
+    environment:
+      - POSTGRES_PASSWORD=postgres_password # Specify the password for the PostgreSQL superuser
+
+  redis:
+    image: "redis:latest" # Use the latest Redis image from Docker Hub
+
+  nginx:
+    depends_on:
+      - api
+      - client
+    restart: always
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./nginx
+    ports:
+      - "3050:80"
+
+  api:
+    build:
+      dockerfile: Dockerfile.dev # Use Dockerfile.dev for building the image
+      context: ./server # Set the build context to the server directory
+    volumes:
+      - /app/node_modules # Ensure node_modules in the container is not overridden
+      - ./server:/app # Bind mount the local server directory to /app in the container
+    environment:
+      - REDIS_HOST=redis # Specify the Redis service hostname
+      - REDIS_PORT=6379 # Specify the Redis service port
+      - PGUSER=postgres # Specify the PostgreSQL user
+      - PGHOST=postgres # Specify the PostgreSQL service hostname
+      - PGDATABASE=postgres # Specify the PostgreSQL database name (corrected typo)
+      - PGPASSWORD=postgres_password # Specify the PostgreSQL user password
+      - PGPORT=5432 # Specify the PostgreSQL service port
+
+  client: # Define the client service
+    environment:
+      - WDS_SOCKET_PORT=0
+    build:
+      dockerfile: Dockerfile.dev # Use Dockerfile.dev for building the image
+      context: ./client # Set the build context to the client directory
+    volumes:
+      - /home/node/app/node_modules # Ensure node_modules in the container is not overridden
+      - ./client:/home/node/app # Bind mount the local client directory to /app in the container
+
+  worker: # Define the worker service
+    build:
+      dockerfile: Dockerfile.dev # Use Dockerfile.dev for building the image
+      context: ./worker # Set the build context to the worker directory
+    volumes:
+      - /app/node_modules # Ensure node_modules in the container is not overridden
+      - ./worker:/apps # Bind mount the local worker directory to /apps in the container
+    environment:
+      - REDIS_HOST=redis # Specify the Redis service hostname
+      - REDIS_PORT=6379 # Specify the Redis service port
+
+#Explanation of each section:-------------------------------------------------
+# version: "3": Indicates the version of the Docker Compose file format being used.
+
+# services: Defines the different services that make up the application.
+
+# postgres: Configuration for the PostgreSQL database service.
+
+# image: Specifies the Docker image to use for this service (postgres:latest).
+# environment: Environment variables required by the PostgreSQL container to initialize the database. Here, POSTGRES_PASSWORD is set to postgres_password to avoid the error of an uninitialized database.
+# redis: Configuration for the Redis in-memory data structure store service.
+# image: Specifies the Docker image to use for this service (redis:latest).
+
+# server: Configuration for the application server service.
+# build: Instructions for building the Docker image for this service.
+# dockerfile: The Dockerfile to use (Dockerfile.dev).
+# context: The build context, set to the ./server directory.
+# volumes: Specifies directories to mount into the container.
+# /app/node_modules: This ensures that the node_modules directory inside the container is not overridden by the host's node_modules.
+# ./server:/app: Mounts the local ./server directory to /app in the container.
+# environment: Environment variables required by the server to connect to Redis and PostgreSQL services.
+# REDIS_HOST, REDIS_PORT: Connection details for the Redis service.
+# PGUSER, PGHOST, PGDATABASE, PGPASSWORD, PGPORT: Connection details for the PostgreSQL service (note that PGDATABASE should be postgres, not postgress).
+
+# client: Configuration for the client service.
+# build: Instructions for building the Docker image for this service.
+# dockerfile: The Dockerfile to use (Dockerfile.dev).
+# context: The build context, set to the ./client directory.
+# volumes: Specifies directories to mount into the container.
+# /app/node_modules: Ensures that the node_modules directory inside the container is not overridden by the host's node_modules.
+# ./client:/app: Mounts the local ./client directory to /app in the container.
+
+# worker: Configuration for the worker service.
+# build: Instructions for building the Docker image for this service.
+# dockerfile: The Dockerfile to use (Dockerfile.dev).
+# context: The build context, set to the ./worker directory.
+# volumes: Specifies directories to mount into the container.
+# /app/node_modules: Ensures that the node_modules directory inside the container is not overridden by the host's node_modules.
+# ./worker:/apps: Mounts the local ./worker directory to /apps in the container.
+# environment: Environment variables required by the worker to connect to Redis.
+# REDIS_HOST, REDIS_PORT: Connection details for the Redis service.
